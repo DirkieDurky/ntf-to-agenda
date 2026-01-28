@@ -208,7 +208,7 @@ try {
                 }
             );
             for (let msg of newMessages) {
-                console.log(`New email: ${msg.envelope.subject}`);
+                console.log(`New email: '${msg.envelope.subject}'`);
                 const fromAddresses = msg.envelope.from.map(x => x.address);
                 if (!(fromAddresses.some(a => a == process.env.TARGET_SENDER) || process.env.DEBUG_MODE && fromAddresses.some(a => a == process.env.DEBUG_SENDER))) {
                     console.log("Not the sender we're looking for");
@@ -218,8 +218,6 @@ try {
 
                 let attachments = findAttachments(msg.bodyStructure);
                 let filteredAttachments = attachments.filter(a => a.filename !== "unnamed");
-                console.log(attachments);
-                console.log(filteredAttachments);
 
                 if (filteredAttachments.length <= 0) {
                     console.log("No attachments");
