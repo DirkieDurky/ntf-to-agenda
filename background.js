@@ -1,7 +1,7 @@
 import * as pdfjsLib from "./pdfjs/pdf.mjs";
+import { env } from "./config.js";
 
 const REDIRECT_URI = browser.identity.getRedirectURL();
-const env = await loadEnv();
 
 messenger.messages.onNewMailReceived.addListener(async (folder, messages) => {
     console.log("New message!");
@@ -151,21 +151,6 @@ async function createCalendarEvent(shift) {
         const text = await response.text();
         throw new Error(`Google Calendar error: ${text}`);
     }
-}
-
-async function loadEnv() {
-    const response = await fetch(browser.runtime.getURL(".env"));
-    const text = await response.text();
-
-    const env = {};
-    text.split("\n").forEach(line => {
-        line = line.trim();
-        if (!line || line.startsWith("#")) return;
-        const [key, ...rest] = line.split("=");
-        env[key] = rest.join("=").trim();
-    });
-
-    return env;
 }
 
 async function googleCalendarAuthorize() {
