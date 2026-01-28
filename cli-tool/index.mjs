@@ -70,14 +70,10 @@ async function extractShiftsFromPdf(pdfBuffer, filename) {
 
     const pdf = await loadingTask.promise;
 
-    console.log(pdf);
-
     let relevantPage = null;
     for (let i = 1; i <= pdf.numPages; i++) {
         const page = await pdf.getPage(i);
-        console.log(page);
         const content = await page.getTextContent();
-        console.log(content);
         if (content.items[0].str === "Op naam" && content.items.some(i => i.str === process.env.TARGET_NAME)) {
             relevantPage = await page.getTextContent();
         }
