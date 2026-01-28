@@ -45,37 +45,39 @@ function findAttachments(node, path = []) {
     return attachments;
 }
 
-async function downloadAttachment(messageUid, attachmentPart, savePath) {
+async function downloadAttachment(messageUid, attachmentPart) {
     let lock = await client.getMailboxLock('INBOX');
     try {
-        let { meta, content } = await client.download(
-            messageUid,
-            attachmentPart,
-            { uid: true }
-        );
+        const { content } = await client.download(messageUid, attachmentPart, { uid: true });
 
-        console.log(meta);
-        console.log(content);
-        console.log('Downloading:', meta.filename || 'attachment');
-        console.log('Content-Type:', meta.contentType);
-        console.log('Expected size:', meta.expectedSize, 'bytes');
+        const chunks = [];
+        for await (const chunk of content) {
+            chunks.push(chunk);
+        }
 
-        await pipeline(content, fs.createWriteStream(savePath));
-
-        console.log(`Saved to ${savePath}`);
+        const pdfBuffer = Buffer.concat(chunks);
+        return pdfBuffer;
     } finally {
         lock.release();
     }
 }
 
-async function extractShiftsFromPdf(filename) {
-    // pdfjsLib.GlobalWorkerOptions.workerSrc = browser.runtime.getURL("pdfjs/pdf.worker.mjs");
-    const pdf = await pdfjsLib.getDocument(filename).promise;
+async function extractShiftsFromPdf(pdfBuffer, filename) {
+    // const pdf = await pdfjsLib.getDocument({ data: attachmentArrayBuffer }).promise;
+    const loadingTask = pdfjsLib.getDocument({
+        data: new Uint8Array(pdfBuffer)
+    });
+
+    const pdf = await loadingTask.promise;
+
+    console.log(pdf);
 
     let relevantPage = null;
     for (let i = 1; i <= pdf.numPages; i++) {
         const page = await pdf.getPage(i);
+        console.log(page);
         const content = await page.getTextContent();
+        console.log(content);
         if (content.items[0].str === "Op naam" && content.items.some(i => i.str === process.env.TARGET_NAME)) {
             relevantPage = await page.getTextContent();
         }
@@ -231,10 +233,10 @@ try {
                 const attachment = filteredAttachments[0];
                 console.log("Attachment found: " + attachment.filename);
 
-                await downloadAttachment(msg.uid, attachment.part, attachment.filename).catch(console.error);
+                const pdfBuffer = await downloadAttachment(msg.uid, attachment.part).catch(console.error);
                 console.log("Downloaded attachment");
 
-                const shifts = await extractShiftsFromPdf(attachment.filename);
+                const shifts = await extractShiftsFromPdf(pdfBuffer, attachment.filename);
                 console.log("Shifts found:");
                 console.log(shifts);
                 console.log("Creating events:");
