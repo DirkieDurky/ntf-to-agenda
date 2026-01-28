@@ -3,6 +3,9 @@ import { env } from "./config.js";
 
 const REDIRECT_URI = browser.identity.getRedirectURL();
 
+console.log("Authorizing to Google Calendar API...");
+await googleCalendarAuthorize();
+
 messenger.messages.onNewMailReceived.addListener(async (folder, messages) => {
     console.log("New message!");
     for (const message of messages.messages) {
@@ -29,9 +32,6 @@ messenger.messages.onNewMailReceived.addListener(async (folder, messages) => {
             const shifts = await extractShiftsFromPdf(file);
             console.log("Shifts found:");
             console.log(shifts);
-
-            console.log("Authorizing to Google Calendar API...");
-            await googleCalendarAuthorize();
 
             console.log("Adding shifts to calendar...");
             for (const shift of shifts) {
