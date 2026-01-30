@@ -17,7 +17,8 @@ const config = {
 }
 
 console.log(formatDate(new Date()), "|", "Authorizing to Google Calendar API...");
-const calendarApi = await googleCalendar.authorize();
+await googleCalendar.authorizeOnce();
+// const calendarApi = await googleCalendar.authorizeOnStartup();
 
 let shuttingDown = false;
 let lastKnownUid = null;

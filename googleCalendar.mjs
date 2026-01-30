@@ -5,11 +5,12 @@ import 'dotenv/config';
 
 const REDIRECT_URI = "http://localhost";
 
-export async function authorize() {
+export async function authorizeOnce() {
     const oauth2Client = new google.auth.OAuth2(process.env.CLIENT_ID, process.env.CLIENT_SECRET, REDIRECT_URI);
 
     const authUrl = oauth2Client.generateAuthUrl({
         access_type: 'offline',
+        prompt: 'consent',
         scope: ['https://www.googleapis.com/auth/calendar'],
     });
 
@@ -17,17 +18,29 @@ export async function authorize() {
 
     const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 
-    const auth = await new Promise((resolve) => {
+    await new Promise((resolve) => {
         rl.question('Enter the code from that page here (Note: The page won\'t load. Just copy the code from the url bar. ' +
             'Everything after "code=" up until the first "&". Replace the %2F at the start with a slash. ' +
             'The code should start with "4/"): ', async (code) => {
                 rl.close();
                 const { tokens } = await oauth2Client.getToken(code);
-                oauth2Client.setCredentials(tokens);
-                resolve(oauth2Client);
+                console.log(`Refresh token (Enter this in your .env): ${tokens.refresh_token}`);
+                resolve();
             });
     });
-    return google.calendar({ version: 'v3', auth });
+}
+
+export async function authorizeOnStartup() {
+    const oauth2Client = new google.auth.OAuth2(process.env.CLIENT_ID, process.env.CLIENT_SECRET, REDIRECT_URI);
+    oauth2Client.setCredentials({ refresh_token: process.env.REFRESH_TOKEN });
+
+    oauth2Client.on('tokens', (tokens) => {
+        if (tokens.access_token) {
+            console.log('Access token refreshed, expires at', new Date(tokens.expiry_date).toString());
+        }
+    });
+
+    return google.calendar({ version: 'v3', auth: oauth2Client });
 }
 
 export async function clearWeek(calendarApi, calendarId, startDate, endDate) {
