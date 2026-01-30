@@ -1,6 +1,6 @@
 import { findAttachments, downloadAttachment } from "./mailHelpers.mjs";
 import { extractShiftsFromPdf } from "./parsePdf.mjs";
-import { googleCalendarAuthorize, createCalendarEvent } from "./googleCalendar.mjs";
+import * as googleCalendar from "./googleCalendar.mjs";
 import { ImapFlow } from 'imapflow';
 import { sleep, formatDate } from "./helpers.mjs";
 import 'dotenv/config';
@@ -17,7 +17,7 @@ const config = {
 }
 
 console.log(formatDate(new Date()), "|", "Authorizing to Google Calendar API...");
-const auth = await googleCalendarAuthorize();
+const calendarApi = await googleCalendar.authorize();
 
 let shuttingDown = false;
 let lastKnownModseq = null;
@@ -121,9 +121,17 @@ async function handleNewMessages(client) {
             console.log("  },");
         }
         console.log("]");
+
+        const weekRangeRegex = /Weekplanning \((\d{2}-\d{2}-\d{4})-(\d{2}-\d{2}-\d{4})\).pdf/;
+        const matches = attachment.filename.match(weekRangeRegex);
+        const startDate = new Date(matches[1].replace(/(\d{2})-(\d{2})-(\d{4})/, '$2-$1-$3'));
+        const endDate = new Date(matches[2].replace(/(\d{2})-(\d{2})-(\d{4})/, '$2-$1-$3'));
+
+        console.log(formatDate(new Date()), "|", `Clearing week from ${formatDate(startDate)} to ${formatDate(endDate)}`);
+        await googleCalendar.clearWeek(calendarApi, process.env.CALENDAR_ID, startDate, endDate);
         console.log(formatDate(new Date()), "|", "Creating events...");
         for (let shift of shifts) {
-            await createCalendarEvent(shift, auth);
+            await googleCalendar.createEvent(calendarApi, process.env.CALENDAR_ID, shift);
         }
     }
     console.log(formatDate(new Date()), "|", `Continuing to watch INBOX...`);
