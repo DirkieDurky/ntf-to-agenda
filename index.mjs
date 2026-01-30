@@ -14,14 +14,13 @@ const config = {
         pass: process.env.EMAIL_PASSWORD
     },
     logger: false,
-    socketTimeout: 35000,
 }
 
-console.log("Authorizing to Google Calendar API...");
+console.log(new Date().toISOString(), "Authorizing to Google Calendar API...");
 const auth = await googleCalendarAuthorize();
 
 let shuttingDown = false;
-let lastCount = null;
+let lastKnownModseq = null;
 let client;
 let lock;
 while (!shuttingDown) {
@@ -30,6 +29,7 @@ while (!shuttingDown) {
 
         client.on("error", err => {
             console.error(new Date().toISOString(), "IMAP error:", err);
+            console.log(new Date().toISOString(), `Continuing to watch INBOX...`);
         });
 
         console.log(new Date().toISOString(), "Connecting to IMAP...");
@@ -38,38 +38,23 @@ while (!shuttingDown) {
 
         console.log(new Date().toISOString(), "IMAP connected");
 
-        if (lastCount == null) {
-            lastCount = client.mailbox.exists;
+        if (lastKnownModseq == null) {
+            lastKnownModseq = (await client.fetchOne("*", { flags: true })).modseq;
         } else {
-            // Check for any missed mails since last connection
-            console.log("Just reconnected. Checking for messages that appeared while disconnected...");
-            console.log(`Last known amount of messages in INBOX: ${lastCount}`);
-            console.log(`Current amount of messages in INBOX: ${client.mailbox.exists}`);
-            if (client.mailbox.exists > lastCount) {
-                console.log("New message(s) found");
-                try {
-                    await handleNewMessages(client, lastCount);
-                } catch (err) {
-                    console.log(`Error while handling new messages: ${err}`);
-                    lastCount = client.mailbox.exists;
-                    console.error(`Continuing to watch INBOX despite error (${lastCount} messages)...`);
-                }
-                finally {
-                    lastCount = client.mailbox.exists;
-                }
-            } else {
-                console.log("No new messages found.");
+            console.log(new Date().toISOString(), "Just reconnected. Checking for messages that appeared while disconnected...");
+            try {
+                await handleNewMessages(client);
+            } catch (err) {
+                console.error(`Something went wrong handling a message: ${err}`);
             }
         }
 
-        console.log("Watching for new messages...");
-        client.on('exists', async (data) => {
-            if (data.count > lastCount) {
-                try {
-                    await handleNewMessages(client, lastCount);
-                } finally {
-                    lastCount = data.count;
-                }
+        console.log(new Date().toISOString(), "Watching for new messages...");
+        client.on('exists', async () => {
+            try {
+                await handleNewMessages(client);
+            } catch (err) {
+                console.error(`Something went wrong handling a message: ${err}`);
             }
         });
 
@@ -81,52 +66,57 @@ while (!shuttingDown) {
         lock.release();
     } catch (err) {
         console.error(new Date().toISOString(), "IMAP error:", err);
+        client.close();
     }
 
     if (!shuttingDown) {
-        console.log("Reconnecting in 5 seconds...");
+        console.log(new Date().toISOString(), "Reconnecting in 5 seconds...");
         await sleep(5_000);
     }
 }
 
-async function handleNewMessages(client, lastCount) {
+async function handleNewMessages(client) {
     let newMessages = await client.fetchAll(
-        `${lastCount + 1}:*`,
+        `1:*`,
         {
             envelope: true,
             bodyStructure: true,
+        },
+        {
+            changedSince: lastKnownModseq,
         }
     );
     for (let msg of newMessages) {
-        console.log(`New email: '${msg.envelope.subject}'`);
+        if (msg.modseq > lastKnownModseq) lastKnownModseq = msg.modseq;
+        console.log(new Date().toISOString(), `New email: '${msg.envelope.subject}'`);
         const fromAddresses = msg.envelope.from.map(x => x.address);
         if (!(fromAddresses.some(a => a == process.env.TARGET_SENDER) || process.env.DEBUG_MODE && fromAddresses.some(a => a == process.env.DEBUG_SENDER))) {
-            console.log("Not the sender we're looking for");
+            console.log(new Date().toISOString(), "Not the sender we're looking for");
             continue;
         }
-        console.log("Sender correct!");
+        console.log(new Date().toISOString(), "Sender correct!");
 
         let attachments = findAttachments(msg.bodyStructure);
         let filteredAttachments = attachments.filter(a => a.filename !== "unnamed");
 
         if (filteredAttachments.length <= 0) {
-            console.log("No attachments");
+            console.log(new Date().toISOString(), "No attachments");
             continue;
         }
 
         const attachment = filteredAttachments[0];
-        console.log("Attachment found: " + attachment.filename);
+        console.log(new Date().toISOString(), "Attachment found: " + attachment.filename);
 
         const pdfBuffer = await downloadAttachment(client, msg.uid, attachment.part).catch(console.error);
-        console.log("Downloaded attachment");
+        console.log(new Date().toISOString(), "Downloaded attachment");
 
         const shifts = await extractShiftsFromPdf(pdfBuffer, attachment.filename);
-        console.log("Shifts found:");
+        console.log(new Date().toISOString(), "Shifts found:");
         console.log(shifts);
-        console.log("Creating events:");
+        console.log(new Date().toISOString(), "Creating events:");
         for (let shift of shifts) {
             await createCalendarEvent(shift, auth);
         }
     }
-    console.log(`Continuing to watch INBOX (${lastCount} messages)...`);
+    console.log(new Date().toISOString(), `Continuing to watch INBOX...`);
 }
