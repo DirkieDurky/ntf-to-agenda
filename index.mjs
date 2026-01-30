@@ -20,7 +20,7 @@ console.log(formatDate(new Date()), "|", "Authorizing to Google Calendar API..."
 const calendarApi = await googleCalendar.authorize();
 
 let shuttingDown = false;
-let lastKnownModseq = null;
+let lastKnownUid = null;
 let client;
 let lock;
 while (!shuttingDown) {
@@ -38,8 +38,8 @@ while (!shuttingDown) {
 
         console.log(formatDate(new Date()), "|", "IMAP connected");
 
-        if (lastKnownModseq == null) {
-            lastKnownModseq = (await client.fetchOne("*", { flags: true })).modseq;
+        if (lastKnownUid == null) {
+            lastKnownUid = (await client.fetchOne("*", { flags: true })).uid;
         } else {
             console.log(formatDate(new Date()), "|", "Just reconnected. Checking for messages that appeared while disconnected...");
             try {
@@ -77,18 +77,18 @@ while (!shuttingDown) {
 
 async function handleNewMessages(client) {
     let newMessages = await client.fetchAll(
-        `1:*`,
+        `${lastKnownUid + 1}:*`,
         {
             envelope: true,
             bodyStructure: true,
         },
         {
-            changedSince: lastKnownModseq,
+            uid: true,
         }
     );
     for (let msg of newMessages) {
-        if (msg.modseq > lastKnownModseq) lastKnownModseq = msg.modseq;
-        console.log(formatDate(new Date()), "|", `New email: '${msg.envelope.subject}' (${msg.modseq})`);
+        if (msg.uid > lastKnownUid) lastKnownUid = msg.uid;
+        console.log(formatDate(new Date()), "|", `New email: '${msg.envelope.subject}' (${msg.uid})`);
         const fromAddresses = msg.envelope.from.map(x => x.address);
         if (!(fromAddresses.some(a => a == process.env.TARGET_SENDER) || process.env.DEBUG_MODE && fromAddresses.some(a => a == process.env.DEBUG_SENDER))) {
             console.log(formatDate(new Date()), "|", "Not the sender we're looking for");
