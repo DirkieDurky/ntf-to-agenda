@@ -126,6 +126,9 @@ async function handleNewMessages(client) {
         const matches = attachment.filename.match(weekRangeRegex);
         const startDate = new Date(matches[1].replace(/(\d{2})-(\d{2})-(\d{4})/, '$2-$1-$3'));
         const endDate = new Date(matches[2].replace(/(\d{2})-(\d{2})-(\d{4})/, '$2-$1-$3'));
+        // Add one day because this is the upper bound for the range.
+        // By adding 1 day we ensure the last day is included in the range.
+        endDate.setDate(endDate.getDate() + 1);
 
         console.log(formatDate(new Date()), "|", `Clearing week from ${formatDate(startDate)} to ${formatDate(endDate)}...`);
         await googleCalendar.clearWeek(calendarApi, process.env.CALENDAR_ID, startDate, endDate);

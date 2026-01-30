@@ -42,6 +42,8 @@ export async function clearWeek(calendarApi, calendarId, startDate, endDate) {
     const events = res.data.items;
     if (!events || events.length === 0) return;
 
+    console.log(formatDate(new Date()), "|", `${events.length} events found to delete`);
+
     await Promise.all(
         events.map((event) =>
             calendarApi.events.delete({
