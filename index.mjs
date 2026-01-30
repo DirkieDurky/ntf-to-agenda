@@ -88,7 +88,7 @@ async function handleNewMessages(client) {
     );
     for (let msg of newMessages) {
         if (msg.modseq > lastKnownModseq) lastKnownModseq = msg.modseq;
-        console.log(formatDate(new Date()), "|", `New email: '${msg.envelope.subject}'`);
+        console.log(formatDate(new Date()), "|", `New email: '${msg.envelope.subject}' (${msg.modseq})`);
         const fromAddresses = msg.envelope.from.map(x => x.address);
         if (!(fromAddresses.some(a => a == process.env.TARGET_SENDER) || process.env.DEBUG_MODE && fromAddresses.some(a => a == process.env.DEBUG_SENDER))) {
             console.log(formatDate(new Date()), "|", "Not the sender we're looking for");
@@ -127,7 +127,7 @@ async function handleNewMessages(client) {
         const startDate = new Date(matches[1].replace(/(\d{2})-(\d{2})-(\d{4})/, '$2-$1-$3'));
         const endDate = new Date(matches[2].replace(/(\d{2})-(\d{2})-(\d{4})/, '$2-$1-$3'));
 
-        console.log(formatDate(new Date()), "|", `Clearing week from ${formatDate(startDate)} to ${formatDate(endDate)}`);
+        console.log(formatDate(new Date()), "|", `Clearing week from ${formatDate(startDate)} to ${formatDate(endDate)}...`);
         await googleCalendar.clearWeek(calendarApi, process.env.CALENDAR_ID, startDate, endDate);
         console.log(formatDate(new Date()), "|", "Creating events...");
         for (let shift of shifts) {
