@@ -45,7 +45,7 @@ while (!shuttingDown) {
             try {
                 await handleNewMessages(client);
             } catch (err) {
-                console.error(`Something went wrong handling a message: ${err}`);
+                console.error("Something went wrong handling a message:", err);
             }
         }
 
@@ -54,7 +54,7 @@ while (!shuttingDown) {
             try {
                 await handleNewMessages(client);
             } catch (err) {
-                console.error(`Something went wrong handling a message: ${err}`);
+                console.error("Something went wrong handling a message:", err);
             }
         });
 
