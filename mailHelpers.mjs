@@ -23,3 +23,15 @@ export function findAttachments(node, path = []) {
 
     return attachments;
 }
+
+export async function downloadAttachment(client, messageUid, attachmentPart) {
+    const { content } = await client.download(messageUid, attachmentPart, { uid: true });
+
+    const chunks = [];
+    for await (const chunk of content) {
+        chunks.push(chunk);
+    }
+
+    const pdfBuffer = Buffer.concat(chunks);
+    return pdfBuffer;
+}
