@@ -5,7 +5,7 @@ import 'dotenv/config';
 
 const REDIRECT_URI = "http://localhost";
 
-export async function authorizeOnce() {
+export async function generateRefreshToken() {
     const oauth2Client = new google.auth.OAuth2(process.env.CLIENT_ID, process.env.CLIENT_SECRET, REDIRECT_URI);
 
     const authUrl = oauth2Client.generateAuthUrl({
@@ -20,7 +20,7 @@ export async function authorizeOnce() {
 
     await new Promise((resolve) => {
         rl.question('Enter the code from that page here (Note: The page won\'t load. Just copy the code from the url bar. ' +
-            'Everything after "code=" up until the first "&". Replace the %2F at the start with a slash. ' +
+            'Everything after "code=" up until the first "&". Replace the %2F at the start with a slash if it isn\'t one already. ' +
             'The code should start with "4/"): ', async (code) => {
                 rl.close();
                 const { tokens } = await oauth2Client.getToken(code);
@@ -30,7 +30,7 @@ export async function authorizeOnce() {
     });
 }
 
-export async function authorizeOnStartup() {
+export async function authorizeGoogleAPI() {
     const oauth2Client = new google.auth.OAuth2(process.env.CLIENT_ID, process.env.CLIENT_SECRET, REDIRECT_URI);
     oauth2Client.setCredentials({ refresh_token: process.env.REFRESH_TOKEN });
 
@@ -39,6 +39,20 @@ export async function authorizeOnStartup() {
             console.log('Access token refreshed, expires at', new Date(tokens.expiry_date).toString());
         }
     });
+
+
+    try {
+        const res = await oauth2Client.getAccessToken();
+    } catch (err) {
+        if (err.response.data.error === "invalid_grant") {
+            console.error("Refresh token has been expired or revoked. Please make a new one.");
+            await generateRefreshToken();
+            process.exit(1);
+        } else {
+            console.log("Something went wrong getting an access token:");
+            console.log(err);
+        }
+    }
 
     return google.calendar({ version: 'v3', auth: oauth2Client });
 }
@@ -72,11 +86,9 @@ export async function createEvent(calendarApi, calendarId, shift) {
         summary: `Kwalitaria - ${shift.type}`,
         start: {
             dateTime: shift.startDateTime,
-            timeZone: "Europe/Amsterdam",
         },
         end: {
             dateTime: shift.endDateTime,
-            timeZone: "Europe/Amsterdam",
         },
     };
 
