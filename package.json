@@ -3,6 +3,7 @@
     "dotenv": "^17.2.3",
     "googleapis": "^170.1.0",
     "imapflow": "^1.2.7",
+    "lodash": "^4.17.23",
     "pdfjs-dist": "^5.4.530"
   }
 }

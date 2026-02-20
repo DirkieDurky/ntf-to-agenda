@@ -40,7 +40,6 @@ export async function authorizeGoogleAPI() {
         }
     });
 
-
     try {
         const res = await oauth2Client.getAccessToken();
     } catch (err) {
@@ -81,7 +80,7 @@ export async function clearWeek(calendarApi, calendarId, startDate, endDate) {
     );
 }
 
-export async function createEvent(calendarApi, calendarId, shift) {
+export async function createEvent(calendarApi, calendarId, shift, description) {
     const event = {
         summary: `Kwalitaria - ${shift.type}`,
         start: {
@@ -90,6 +89,7 @@ export async function createEvent(calendarApi, calendarId, shift) {
         end: {
             dateTime: shift.endDateTime,
         },
+        description: description
     };
 
     try {
