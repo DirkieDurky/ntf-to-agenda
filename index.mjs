@@ -147,6 +147,7 @@ async function handleNewMessages(client) {
 		endDate.setDate(endDate.getDate() + 1);
 
 		// Updating global calendar
+		console.log();
 		console.log(formatDate(new Date()), "|", `Updating global calendar`);
 		console.log(formatDate(new Date()), "|", `Clearing week from ${formatDate(startDate)} to ${formatDate(endDate)}...`);
 		await googleCalendar.clearWeek(calendarApi, config.globalCalendarId, startDate, endDate);
@@ -168,6 +169,7 @@ async function handleNewMessages(client) {
 
 		// Updating target specific calendars
 		for (const target of config.targets) {
+			console.log();
 			console.log(formatDate(new Date()), "|", `Updating calendar for ${target.name}`);
 			console.log(formatDate(new Date()), "|", `Clearing week from ${formatDate(startDate)} to ${formatDate(endDate)}...`);
 			await googleCalendar.clearWeek(calendarApi, target.calendarId, startDate, endDate);
