@@ -116,7 +116,7 @@ async function handleNewMessages(client) {
 		// Prepare descriptions for each day
 		const descriptions = new Map();
 		for (let [date, shiftsThisDay] of shifts.byDate) {
-			shiftsThisDay = _.orderBy(shiftsThisDay, [s => s.employeeName === "Open", 'startDateTime', 'endDateTime', 'employeeName'], ['asc', 'asc', 'desc', 'asc']);
+			shiftsThisDay = _.orderBy(shiftsThisDay, [s => s.employeeName === "Open", 'startDateTime', 'endDateTime', 'employeeName'], ['asc', 'asc', 'asc', 'asc']);
 			const types = _.uniqBy(shiftsThisDay, 'type').map(s => s.type).sort();
 			let description = "";
 			let shiftLists = [];

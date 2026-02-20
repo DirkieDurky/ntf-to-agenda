@@ -1,6 +1,7 @@
 import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
 import config from './config.json' with { type: 'json' };
 import * as util from 'util';
+import _ from 'lodash';
 
 export async function extractTargetShiftsFromPdf(pdfBuffer, filename) {
 	// const pdf = await pdfjsLib.getDocument({ data: attachmentArrayBuffer }).promise;
@@ -79,6 +80,7 @@ export async function extractTargetShiftsFromPdf(pdfBuffer, filename) {
 }
 
 export async function extractAllShiftsFromPdf(pdfBuffer, filename) {
+	// const loadingTask = pdfjsLib.getDocument(filename);
 	const loadingTask = pdfjsLib.getDocument({
 		data: new Uint8Array(pdfBuffer)
 	});
@@ -94,7 +96,7 @@ export async function extractAllShiftsFromPdf(pdfBuffer, filename) {
 		}
 	}
 	// console.log("relevantPages:");
-	// console.log(util.inspect(relevantPages, { showHidden: false, depth: null, colors: true }));
+	// process.stdout.write(util.inspect(relevantPages, { showHidden: false, depth: null, colors: true, maxArrayLength: null }));
 
 	const yearRegex = /Weekplanning \(\d{2}-\d{2}-(\d{4})-\d{2}-\d{2}-(\d{4})\).pdf/;
 	let matches = filename.match(yearRegex);
@@ -124,6 +126,8 @@ export async function extractAllShiftsFromPdf(pdfBuffer, filename) {
 	const shiftsByEmployee = new Map();
 
 	let currentEmployee = "";
+	let currentType = "";
+	let currentTypeX = null;
 	let lastX = rowStartX;
 
 	for (let page of relevantPages) {
@@ -131,8 +135,9 @@ export async function extractAllShiftsFromPdf(pdfBuffer, filename) {
 			const item = page.items[i];
 			const x = item.transform[4];
 			if (item.str === "") continue;
-			if (item.str === "Op naam") continue;
-			if (item.str === "Dienst") continue;
+			if (item.fontName !== "g_d0_f2") continue;
+			// if (item.str === "Op naam") continue;
+			// if (item.str === "Dienst") continue;
 
 			if (x === rowStartX) {
 				if (lastX > x) {
@@ -140,6 +145,13 @@ export async function extractAllShiftsFromPdf(pdfBuffer, filename) {
 				} else {
 					currentEmployee += " " + item.str;
 				}
+			}
+
+			if (/^\w+$/.test(item.str) && x !== rowStartX
+				// && item.str !== "Totaal"
+			) {
+				currentType = item.str;
+				currentTypeX = x;
 			}
 
 			if ((matches = item.str.match(timeRegex)) !== null) {
@@ -153,7 +165,7 @@ export async function extractAllShiftsFromPdf(pdfBuffer, filename) {
 				const newShift = {
 					date: date,
 					employeeName: currentEmployee,
-					type: page.items[i - 2].str,
+					type: currentTypeX == x ? currentType : null,
 					startDateTime: startDateTime,
 					endDateTime: endDateTime,
 				};
