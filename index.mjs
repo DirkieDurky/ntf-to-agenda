@@ -113,29 +113,17 @@ async function handleNewMessages(client) {
 
 		const shifts = await extractAllShiftsFromPdf(pdfBuffer, attachment.filename);
 
-		const weekRangeRegex = /Weekplanning \((\d{2}-\d{2}-\d{4})-(\d{2}-\d{2}-\d{4})\).pdf/;
-		const matches = attachment.filename.match(weekRangeRegex);
-		const startDate = new Date(matches[1].replace(/(\d{2})-(\d{2})-(\d{4})/, '$2-$1-$3'));
-		const endDate = new Date(matches[2].replace(/(\d{2})-(\d{2})-(\d{4})/, '$2-$1-$3'));
-		// Add one day because this is the upper bound for the range.
-		// By adding 1 day we ensure the last day is included in the range.
-		endDate.setDate(endDate.getDate() + 1);
-
-		console.log(formatDate(new Date()), "|", `Clearing week from ${formatDate(startDate)} to ${formatDate(endDate)}...`);
-		await googleCalendar.clearWeek(calendarApi, config.calendarId, startDate, endDate);
-
-		console.log(formatDate(new Date()), "|", "Creating events...");
-		for (let shift of shifts.byEmployee.get(config.targetName)) {
-			let shiftsThatDay = shifts.byDate.get(shift.date);
-
-			shiftsThatDay = _.orderBy(shiftsThatDay, [s => s.employeeName === "Open", 'startDateTime', 'endDateTime', 'employeeName'], ['asc', 'asc', 'desc', 'asc']);
-			const types = _.uniqBy(shiftsThatDay, 'type').map(s => s.type).sort();
+		// Prepare descriptions for each day
+		const descriptions = new Map();
+		for (let [date, shiftsThisDay] of shifts.byDate) {
+			shiftsThisDay = _.orderBy(shiftsThisDay, [s => s.employeeName === "Open", 'startDateTime', 'endDateTime', 'employeeName'], ['asc', 'asc', 'desc', 'asc']);
+			const types = _.uniqBy(shiftsThisDay, 'type').map(s => s.type).sort();
 			let description = "";
 			let shiftLists = [];
 			for (const type of types) {
 				let shiftList = "";
 				shiftList += type + ":\n";
-				let shiftsOfThisType = shiftsThatDay.filter(s => s.type === type);
+				let shiftsOfThisType = shiftsThisDay.filter(s => s.type === type);
 				shiftsOfThisType = shiftsOfThisType.map(s =>
 					// s.employeeName + Array(1 + Math.floor((longestNameLength - s.employeeName.length) / 32) + 1).join("	") + formatDateTime(s.startDateTime) + "-" + formatDateTime(s.endDateTime)
 					// `<tr><td>${s.employeeName}</td><td>${formatDateTime(s.startDateTime)} - ${formatDateTime(s.endDateTime)}</td></tr>`
@@ -147,8 +135,47 @@ async function handleNewMessages(client) {
 				shiftLists.push(shiftList);
 			}
 			description += shiftLists.join("\n\n");
-			console.log(description);
-			await googleCalendar.createEvent(calendarApi, config.calendarId, shift, description);
+			descriptions.set(date, description);
+		}
+
+		const weekRangeRegex = /Weekplanning \((\d{2}-\d{2}-\d{4})-(\d{2}-\d{2}-\d{4})\).pdf/;
+		const matches = attachment.filename.match(weekRangeRegex);
+		const startDate = new Date(matches[1].replace(/(\d{2})-(\d{2})-(\d{4})/, '$2-$1-$3'));
+		const endDate = new Date(matches[2].replace(/(\d{2})-(\d{2})-(\d{4})/, '$2-$1-$3'));
+		// Add one day because this is the upper bound for the range.
+		// By adding 1 day we ensure the last day is included in the range.
+		endDate.setDate(endDate.getDate() + 1);
+
+		// Updating global calendar
+		console.log(formatDate(new Date()), "|", `Updating global calendar`);
+		console.log(formatDate(new Date()), "|", `Clearing week from ${formatDate(startDate)} to ${formatDate(endDate)}...`);
+		await googleCalendar.clearWeek(calendarApi, config.globalCalendarId, startDate, endDate);
+		console.log(formatDate(new Date()), "|", "Creating events...");
+		for (const [date, shiftsThisDay] of shifts.byDate) {
+			let firstShiftStart = null;
+			let lastShiftEnd = null;
+			for (const shift of shiftsThisDay) {
+				if (firstShiftStart === null || shift.startDateTime < firstShiftStart) {
+					firstShiftStart = shift.startDateTime;
+				}
+				if (lastShiftEnd === null || shift.endDateTime > lastShiftEnd) {
+					lastShiftEnd = shift.endDateTime;
+				}
+			}
+
+			await googleCalendar.createEvent(calendarApi, config.globalCalendarId, firstShiftStart, lastShiftEnd, "Kwalitaria", descriptions.get(date));
+		}
+
+		// Updating target specific calendars
+		for (const target of config.targets) {
+			console.log(formatDate(new Date()), "|", `Updating calendar for ${target.name}`);
+			console.log(formatDate(new Date()), "|", `Clearing week from ${formatDate(startDate)} to ${formatDate(endDate)}...`);
+			await googleCalendar.clearWeek(calendarApi, target.calendarId, startDate, endDate);
+
+			console.log(formatDate(new Date()), "|", "Creating events...");
+			for (let shift of shifts.byEmployee.get(target.name)) {
+				await googleCalendar.createEvent(calendarApi, target.calendarId, shift.startDateTime, shift.endDateTime, `Kwalitaria - ${shift.type}`, descriptions.get(shift.date));
+			}
 		}
 	}
 	console.log(formatDate(new Date()), "|", `Continuing to watch INBOX...`);

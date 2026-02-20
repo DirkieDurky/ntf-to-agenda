@@ -80,14 +80,14 @@ export async function clearWeek(calendarApi, calendarId, startDate, endDate) {
 	);
 }
 
-export async function createEvent(calendarApi, calendarId, shift, description) {
+export async function createEvent(calendarApi, calendarId, startDateTime, endDateTime, summary, description) {
 	const event = {
-		summary: `Kwalitaria - ${shift.type}`,
+		summary: summary,
 		start: {
-			dateTime: shift.startDateTime,
+			dateTime: startDateTime,
 		},
 		end: {
-			dateTime: shift.endDateTime,
+			dateTime: endDateTime,
 		},
 		description: description
 	};

@@ -5,10 +5,15 @@
 	"emailPassword": "",
 	"clientId": "",
 	"clientSecret": "",
-	"debugMode": "",
+	"debugMode": false,
 	"targetSender": "",
 	"debugSender": "",
-	"targetName": "",
-	"calendarId": "",
-	"refreshToken": ""
+	"refreshToken": "",
+	"globalCalendarId": "",
+	"targets": [
+		{
+			"name": "",
+			"calendarId": ""
+		}
+	]
 }
