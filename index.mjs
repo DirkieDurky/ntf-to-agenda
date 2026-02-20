@@ -201,7 +201,6 @@ async function handleNewMessages(client) {
 					}
 					summary += ` - ${companionshipInfo}`;
 				}
-				console.log(summary);
 				await googleCalendar.createEvent(calendarApi, target.calendarId, shift.startDateTime, shift.endDateTime, summary, descriptions.get(shift.date));
 			}
 		}
