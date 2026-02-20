@@ -1,5 +1,5 @@
 import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
-import 'dotenv/config';
+import config from './config.json' with { type: 'json' };
 import * as util from 'util';
 
 export async function extractTargetShiftsFromPdf(pdfBuffer, filename) {
@@ -14,7 +14,7 @@ export async function extractTargetShiftsFromPdf(pdfBuffer, filename) {
 	for (let i = 1; i <= pdf.numPages; i++) {
 		const page = await pdf.getPage(i);
 		const content = await page.getTextContent();
-		if (content.items[0].str === "Op naam" && content.items.some(i => i.str === process.env.TARGET_NAME)) {
+		if (content.items[0].str === "Op naam" && content.items.some(i => i.str === config.targetName)) {
 			relevantPage = await page.getTextContent();
 		}
 	}
@@ -48,7 +48,7 @@ export async function extractTargetShiftsFromPdf(pdfBuffer, filename) {
 	for (let i = 0; i < relevantPage.items.length; i++) {
 		const item = relevantPage.items[i];
 		if (rowStartX === null) {
-			if (item.str == process.env.TARGET_NAME) {
+			if (item.str == config.targetName) {
 				rowStartX = item.transform[4];
 				// console.log("Found x at start of row:");
 				// console.log(rowStartX);

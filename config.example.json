@@ -1,0 +1,14 @@
+{
+	"emailHost": "",
+	"emailPort": "",
+	"emailUsername": "",
+	"emailPassword": "",
+	"clientId": "",
+	"clientSecret": "",
+	"debugMode": "",
+	"targetSender": "",
+	"debugSender": "",
+	"targetName": "",
+	"calendarId": "",
+	"refreshToken": ""
+}

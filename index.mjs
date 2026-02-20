@@ -3,16 +3,16 @@ import { extractAllShiftsFromPdf } from "./parsePdf.mjs";
 import * as googleCalendar from "./googleCalendar.mjs";
 import { ImapFlow } from 'imapflow';
 import { sleep, formatDate, formatDateTime } from "./helpers.mjs";
-import 'dotenv/config';
+import config from './config.json' with { type: 'json' };
 import _ from 'lodash';
 
-const config = {
-	host: process.env.EMAIL_HOST,
-	port: process.env.EMAIL_PORT,
+const imapConfig = {
+	host: config.emailHost,
+	port: config.emailPort,
 	secure: true,
 	auth: {
-		user: process.env.EMAIL_USERNAME,
-		pass: process.env.EMAIL_PASSWORD
+		user: config.emailUsername,
+		pass: config.emailPassword
 	},
 	logger: false,
 }
@@ -26,7 +26,7 @@ let client;
 let lock;
 while (!shuttingDown) {
 	try {
-		client = new ImapFlow(config);
+		client = new ImapFlow(imapConfig);
 
 		client.on("error", err => {
 			console.error(formatDate(new Date()), "|", "IMAP error:", err);
@@ -91,7 +91,7 @@ async function handleNewMessages(client) {
 		if (msg.uid > lastKnownUid) lastKnownUid = msg.uid;
 		console.log(formatDate(new Date()), "|", `New email: '${msg.envelope.subject}' (${msg.uid})`);
 		const fromAddresses = msg.envelope.from.map(x => x.address);
-		if (!(fromAddresses.some(a => a == process.env.TARGET_SENDER) || process.env.DEBUG_MODE && fromAddresses.some(a => a == process.env.DEBUG_SENDER))) {
+		if (!(fromAddresses.some(a => a == config.targetSender) || config.debugMode && fromAddresses.some(a => a == config.debugSender))) {
 			console.log(formatDate(new Date()), "|", "Not the sender we're looking for");
 			continue;
 		}
@@ -122,10 +122,10 @@ async function handleNewMessages(client) {
 		endDate.setDate(endDate.getDate() + 1);
 
 		console.log(formatDate(new Date()), "|", `Clearing week from ${formatDate(startDate)} to ${formatDate(endDate)}...`);
-		await googleCalendar.clearWeek(calendarApi, process.env.CALENDAR_ID, startDate, endDate);
+		await googleCalendar.clearWeek(calendarApi, config.calendarId, startDate, endDate);
 
 		console.log(formatDate(new Date()), "|", "Creating events...");
-		for (let shift of shifts.byEmployee.get(process.env.TARGET_NAME)) {
+		for (let shift of shifts.byEmployee.get(config.targetName)) {
 			let shiftsThatDay = shifts.byDate.get(shift.date);
 
 			shiftsThatDay = _.orderBy(shiftsThatDay, [s => s.employeeName === "Open", 'startDateTime', 'endDateTime', 'employeeName'], ['asc', 'asc', 'desc', 'asc']);
@@ -148,7 +148,7 @@ async function handleNewMessages(client) {
 			}
 			description += shiftLists.join("\n\n");
 			console.log(description);
-			await googleCalendar.createEvent(calendarApi, process.env.CALENDAR_ID, shift, description);
+			await googleCalendar.createEvent(calendarApi, config.calendarId, shift, description);
 		}
 	}
 	console.log(formatDate(new Date()), "|", `Continuing to watch INBOX...`);
