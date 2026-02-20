@@ -175,8 +175,34 @@ async function handleNewMessages(client) {
 			await googleCalendar.clearWeek(calendarApi, target.calendarId, startDate, endDate);
 
 			console.log(formatDate(new Date()), "|", "Creating events...");
+
 			for (let shift of shifts.byEmployee.get(target.name)) {
-				await googleCalendar.createEvent(calendarApi, target.calendarId, shift.startDateTime, shift.endDateTime, `Kwalitaria - ${shift.type}`, descriptions.get(shift.date));
+				let summary = `Kwalitaria - ${shift.type}`;
+
+				if (shift.type === "Bezorgen") {
+					let deliveryLengthInfo;
+					if (formatDateTime(shift.startDateTime) === "16:30" && formatDateTime(shift.endDateTime) === "20:30") {
+						deliveryLengthInfo = "Lange shift";
+					}
+					else if (formatDateTime(shift.startDateTime) === "17:00" && formatDateTime(shift.endDateTime) === "20:00") {
+						deliveryLengthInfo = "Korte shift";
+					}
+					else {
+						deliveryLengthInfo = "Speciale shift";
+					}
+					summary += ` - ${deliveryLengthInfo}`;
+
+					let companionshipInfo;
+					const otherDeliverers = shifts.byDate.get(shift.date).filter(s => s.type === "Bezorgen" && s.employeeName !== target.name);
+					if (otherDeliverers.length > 0) {
+						companionshipInfo = "Met " + otherDeliverers.map(s => s.employeeName).join(" en ");
+					} else {
+						companionshipInfo = "Alleen";
+					}
+					summary += ` - ${companionshipInfo}`;
+				}
+				console.log(summary);
+				await googleCalendar.createEvent(calendarApi, target.calendarId, shift.startDateTime, shift.endDateTime, summary, descriptions.get(shift.date));
 			}
 		}
 	}
