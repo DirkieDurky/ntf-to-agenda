@@ -89,7 +89,7 @@ async function handleNewMessages(client) {
     );
     for (let msg of newMessages) {
         if (msg.uid > lastKnownUid) lastKnownUid = msg.uid;
-        console.log(formatDate(new Date()), "|", `New email: '${msg.envelope.subject}' (${msg.uid})`);
+        console.log(formatDate(new Date()), "|", `New email: '${msg.envelope.subject ?? "Unknown subject"}' (${msg.uid})`);
         const fromAddresses = msg.envelope.from.map(x => x.address);
         if (!(fromAddresses.some(a => a == config.targetSender) || config.debugMode && fromAddresses.some(a => a == config.debugSender))) {
             console.log(formatDate(new Date()), "|", "Not the sender we're looking for");
