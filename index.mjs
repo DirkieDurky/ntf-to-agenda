@@ -17,7 +17,7 @@ const imapConfig = {
     logger: false,
 }
 
-console.log(formatDate(new Date()), "|", "Authorizing to Google Calendar API...");
+console.log("Authorizing to Google Calendar API...");
 const calendarApi = await googleCalendar.authorizeGoogleAPI();
 
 let shuttingDown = false;
@@ -29,20 +29,20 @@ while (!shuttingDown) {
         client = new ImapFlow(imapConfig);
 
         client.on("error", err => {
-            console.error(formatDate(new Date()), "|", "IMAP error:", err);
-            console.log(formatDate(new Date()), "|", `Continuing to watch INBOX...`);
+            console.error("IMAP error:", err);
+            console.log(`Continuing to watch INBOX...`);
         });
 
-        console.log(formatDate(new Date()), "|", "Connecting to IMAP...");
+        console.log("Connecting to IMAP...");
         await client.connect();
         lock = await client.getMailboxLock('INBOX');
 
-        console.log(formatDate(new Date()), "|", "IMAP connected");
+        console.log("IMAP connected");
 
         if (lastKnownUid == null) {
             lastKnownUid = (await client.fetchOne("*", { flags: true })).uid;
         } else {
-            console.log(formatDate(new Date()), "|", "Just reconnected. Checking for messages that appeared while disconnected...");
+            console.log("Just reconnected. Checking for messages that appeared while disconnected...");
             try {
                 await handleNewMessages(client);
             } catch (err) {
@@ -50,7 +50,7 @@ while (!shuttingDown) {
             }
         }
 
-        console.log(formatDate(new Date()), "|", "Watching for new messages...");
+        console.log("Watching for new messages...");
         client.on('exists', async () => {
             try {
                 await handleNewMessages(client);
@@ -63,15 +63,15 @@ while (!shuttingDown) {
             client.once("close", resolve);
         });
 
-        console.log(formatDate(new Date()), "|", "IMAP connection closed.");
+        console.log("IMAP connection closed.");
         lock.release();
     } catch (err) {
-        console.error(formatDate(new Date()), "|", "IMAP error:", err);
+        console.error("IMAP error:", err);
         client.close();
     }
 
     if (!shuttingDown) {
-        console.log(formatDate(new Date()), "|", "Reconnecting in 5 seconds...");
+        console.log("Reconnecting in 5 seconds...");
         await sleep(5_000);
     }
 }
@@ -89,27 +89,27 @@ async function handleNewMessages(client) {
     );
     for (let msg of newMessages) {
         if (msg.uid > lastKnownUid) lastKnownUid = msg.uid;
-        console.log(formatDate(new Date()), "|", `New email: '${msg.envelope.subject ?? "Unknown subject"}' (${msg.uid})`);
+        console.log(`New email: '${msg.envelope.subject ?? "Unknown subject"}' (${msg.uid})`);
         const fromAddresses = msg.envelope.from.map(x => x.address);
         if (!(fromAddresses.some(a => a == config.targetSender) || config.debugMode && fromAddresses.some(a => a == config.debugSender))) {
-            console.log(formatDate(new Date()), "|", "Not the sender we're looking for");
+            console.log("Not the sender we're looking for");
             continue;
         }
-        console.log(formatDate(new Date()), "|", "Sender correct!");
+        console.log("Sender correct!");
 
         let attachments = findAttachments(msg.bodyStructure);
         let filteredAttachments = attachments.filter(a => a.filename !== "unnamed");
 
         if (filteredAttachments.length <= 0) {
-            console.log(formatDate(new Date()), "|", "No attachments");
+            console.log("No attachments");
             continue;
         }
 
         const attachment = filteredAttachments[0];
-        console.log(formatDate(new Date()), "|", "Attachment found: " + attachment.filename);
+        console.log("Attachment found: " + attachment.filename);
 
         const pdfBuffer = await downloadAttachment(client, msg.uid, attachment.part).catch(console.error);
-        console.log(formatDate(new Date()), "|", "Downloaded attachment");
+        console.log("Downloaded attachment");
 
         const shifts = await extractAllShiftsFromPdf(pdfBuffer, attachment.filename);
 
@@ -148,10 +148,10 @@ async function handleNewMessages(client) {
 
         // Updating global calendar
         console.log();
-        console.log(formatDate(new Date()), "|", `Updating global calendar`);
-        console.log(formatDate(new Date()), "|", `Clearing week from ${formatDate(startDate)} to ${formatDate(endDate)}...`);
+        console.log(`Updating global calendar`);
+        console.log(`Clearing week from ${formatDate(startDate)} to ${formatDate(endDate)}...`);
         await googleCalendar.clearWeek(calendarApi, config.globalCalendarId, startDate, endDate);
-        console.log(formatDate(new Date()), "|", "Creating events...");
+        console.log("Creating events...");
         for (const [date, shiftsThisDay] of shifts.byDate ?? []) {
             let firstShiftStart = null;
             let lastShiftEnd = null;
@@ -170,11 +170,11 @@ async function handleNewMessages(client) {
         // Updating target specific calendars
         for (const target of config.targets) {
             console.log();
-            console.log(formatDate(new Date()), "|", `Updating calendar for ${target.name}`);
-            console.log(formatDate(new Date()), "|", `Clearing week from ${formatDate(startDate)} to ${formatDate(endDate)}...`);
+            console.log(`Updating calendar for ${target.name}`);
+            console.log(`Clearing week from ${formatDate(startDate)} to ${formatDate(endDate)}...`);
             await googleCalendar.clearWeek(calendarApi, target.calendarId, startDate, endDate);
 
-            console.log(formatDate(new Date()), "|", "Creating events...");
+            console.log("Creating events...");
 
             for (let shift of shifts.byEmployee.get(target.name) ?? []) {
                 let summary = `Kwalitaria - ${shift.type}`;
@@ -205,5 +205,5 @@ async function handleNewMessages(client) {
             }
         }
     }
-    console.log(formatDate(new Date()), "|", `Continuing to watch INBOX...`);
+    console.log(`Continuing to watch INBOX...`);
 }
