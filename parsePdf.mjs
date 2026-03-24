@@ -60,7 +60,11 @@ export async function extractAllShiftsFromPdf(pdfBuffer, filename) {
             const item = page.items[i];
             const x = item.transform[4];
             if (item.str === "") continue;
-            if (item.fontName !== "g_d0_f2") continue;
+
+            // We only look for the second font found in parsing
+            // Should be the non-bold/thin font
+            if (!/g_d\d+_f2/.test(item.fontName)) continue;
+
             // if (item.str === "Op naam") continue;
             // if (item.str === "Dienst") continue;
 
