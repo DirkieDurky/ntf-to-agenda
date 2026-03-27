@@ -10,12 +10,12 @@
 	"debugSender": "",
 	"refreshToken": "",
 	"globalCalendarId": "",
+    "closers": [],
+    "displayNameExceptions": {},
 	"targets": [
 		{
 			"name": "",
 			"calendarId": ""
 		}
-	],
-    "closers": [],
-    "displayNameExceptions": {}
+	]
 }

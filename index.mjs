@@ -119,21 +119,54 @@ async function handleNewMessages(client) {
 
         const shifts = await extractAllShiftsFromPdf(pdfBuffer, attachment.filename);
 
-        // Prepare descriptions for each day
-        const descriptions = new Map();
+        // Prepare dayInfo for each day
+        const dayInfoMap = new Map();
         for (let [date, shiftsThisDay] of shifts.byDate) {
             shiftsThisDay = _.orderBy(shiftsThisDay, [s => s.employeeName === "Open", 'startDateTime', 'endDateTime', 'employeeName'], ['asc', 'asc', 'asc', 'asc']);
             const types = _.uniqBy(shiftsThisDay, 'type').map(s => s.type).sort();
+
+            let firstShiftStart = null;
+            let lastShiftEnd = null;
+
+            let lastShiftEndKeuken = null;
+            let lastShiftEndBezorgen = null;
+
+            let allShiftsAreOpen = true;
+
+            for (const shift of shiftsThisDay) {
+                if (shift.employeeName !== "Open") {
+                    allShiftsAreOpen = false;
+
+                    if (firstShiftStart === null || shift.startDateTime.getTime() < firstShiftStart) {
+                        firstShiftStart = shift.startDateTime.getTime();
+                    }
+                    if (lastShiftEnd === null || shift.endDateTime.getTime() > lastShiftEnd) {
+                        lastShiftEnd = shift.endDateTime.getTime();
+                    }
+
+                    if (shift.type === "Bezorgen") {
+                        if (lastShiftEndBezorgen === null || shift.endDateTime.getTime() > lastShiftEndBezorgen)
+                            lastShiftEndBezorgen = shift.endDateTime.getTime();
+                    } else {
+                        if (lastShiftEndKeuken === null || shift.endDateTime.getTime() > lastShiftEndKeuken)
+                            lastShiftEndKeuken = shift.endDateTime.getTime();
+                    }
+                }
+            }
+            if (allShiftsAreOpen) continue;
+
             let description = "";
 
             let realClosers = [];
             let closingDeliverers = [];
             for (const shift of shiftsThisDay) {
-                if (shift.employeeName !== "Open" && formatDateTime(shift.endDateTime) === "20:30") {
+                if (shift.employeeName !== "Open") {
                     if (shift.type === "Bezorgen") {
-                        closingDeliverers.push(shift.employeeName);
+                        if (shift.endDateTime.getTime() === lastShiftEndBezorgen)
+                            closingDeliverers.push(shift.employeeName);
                     } else {
-                        realClosers.push(shift.employeeName);
+                        if (shift.endDateTime.getTime() === lastShiftEndKeuken)
+                            realClosers.push(shift.employeeName);
                     }
                 }
             }
@@ -145,12 +178,8 @@ async function handleNewMessages(client) {
             });
 
             // Only get the first name of each employee
-            realClosers = realClosers.map((e) => {
-                return config.displayNameExceptions[e.toLowerCase()] ?? e.replace(/ .*/, '');
-            });
-            closingDeliverers = closingDeliverers.map((e) => {
-                return config.displayNameExceptions[e.toLowerCase()] ?? e.replace(/ .*/, '');
-            });
+            realClosers = realClosers.map((e) => extractFirstName(e));
+            closingDeliverers = closingDeliverers.map((e) => extractFirstName(e));
 
             description += "Sluiters: " + realClosers.join(", ") + " (& " + closingDeliverers.join(", ") + ")\n\n";
 
@@ -170,7 +199,11 @@ async function handleNewMessages(client) {
                 shiftLists.push(shiftList);
             }
             description += shiftLists.join("\n\n");
-            descriptions.set(date, description);
+            dayInfoMap.set(date, {
+                "firstShiftStart": firstShiftStart,
+                "lastShiftEnd": lastShiftEnd,
+                "description": description,
+            });
         }
 
         const weekRangeRegex = /Weekplanning \((\d{2}-\d{2}-\d{4})-(\d{2}-\d{2}-\d{4})\).pdf/;
@@ -187,26 +220,8 @@ async function handleNewMessages(client) {
         console.log(`Clearing week from ${formatDate(startDate)} to ${formatDate(endDate)}...`);
         await googleCalendar.clearWeek(calendarApi, config.globalCalendarId, startDate, endDate);
         console.log("Creating events...");
-        for (const [date, shiftsThisDay] of shifts.byDate ?? []) {
-            let firstShiftStart = null;
-            let lastShiftEnd = null;
-            let allShiftsAreOpen = true;
-
-            for (const shift of shiftsThisDay) {
-                if (shift.employeeName !== "Open") {
-                    allShiftsAreOpen = false;
-
-                    if (firstShiftStart === null || shift.startDateTime < firstShiftStart) {
-                        firstShiftStart = shift.startDateTime;
-                    }
-                    if (lastShiftEnd === null || shift.endDateTime > lastShiftEnd) {
-                        lastShiftEnd = shift.endDateTime;
-                    }
-                }
-            }
-            if (allShiftsAreOpen) continue;
-
-            await googleCalendar.createEvent(calendarApi, config.globalCalendarId, firstShiftStart, lastShiftEnd, "Kwalitaria", descriptions.get(date));
+        for (const [day, dayInfo] of dayInfoMap) {
+            await googleCalendar.createEvent(calendarApi, config.globalCalendarId, new Date(dayInfo.firstShiftStart), new Date(dayInfo.lastShiftEnd), "Kwalitaria", dayInfo.description);
         }
 
         // Updating target specific calendars
@@ -243,9 +258,14 @@ async function handleNewMessages(client) {
                     }
                     summary += ` - ${companionshipInfo}`;
                 }
-                await googleCalendar.createEvent(calendarApi, target.calendarId, shift.startDateTime, shift.endDateTime, summary, descriptions.get(shift.date));
+
+                await googleCalendar.createEvent(calendarApi, target.calendarId, shift.startDateTime, shift.endDateTime, summary, dayInfoMap.get(shift.date).description);
             }
         }
     }
     console.log(`Continuing to watch INBOX...`);
+}
+
+function extractFirstName(fullName) {
+    return config.displayNameExceptions[fullName.toLowerCase()] ?? fullName.replace(/ .*/, '');
 }
