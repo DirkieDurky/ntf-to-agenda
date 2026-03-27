@@ -53,7 +53,7 @@ export async function extractAllShiftsFromPdf(pdfBuffer, filename) {
     // This is useful for when types are at the end of a page and
     // the times are on the next page
     let typeMap = new Map();
-    let lastX = rowStartX;
+    let lastX = null;
 
     for (let page of relevantPages) {
         for (let i = 0; i < page.items.length; i++) {
@@ -69,7 +69,7 @@ export async function extractAllShiftsFromPdf(pdfBuffer, filename) {
             // if (item.str === "Dienst") continue;
 
             if (x === rowStartX) {
-                if (lastX > x) {
+                if (lastX === null || lastX > x) {
                     currentEmployee = item.str;
                 } else {
                     currentEmployee += " " + item.str;
@@ -108,7 +108,9 @@ export async function extractAllShiftsFromPdf(pdfBuffer, filename) {
         }
     }
 
-    // console.log(shiftsByDate);
-    // console.log(shiftsByEmployee);
+    console.log("By date:")
+    console.log(shiftsByDate);
+    console.log("By employee:");
+    console.log(shiftsByEmployee);
     return { byDate: shiftsByDate, byEmployee: shiftsByEmployee };
 }
