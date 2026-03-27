@@ -6,6 +6,12 @@ import { sleep, formatDate, formatDateTime } from "./helpers.mjs";
 import config from './config.json' with { type: 'json' };
 import _ from 'lodash';
 
+// Normalize displayNameExceptions
+config.displayNameExceptions = Object.fromEntries(
+    Object.entries(config.displayNameExceptions)
+        .map(([k, v]) => [k.toLowerCase(), v])
+);
+
 const imapConfig = {
     host: config.emailHost,
     port: config.emailPort,
@@ -119,6 +125,35 @@ async function handleNewMessages(client) {
             shiftsThisDay = _.orderBy(shiftsThisDay, [s => s.employeeName === "Open", 'startDateTime', 'endDateTime', 'employeeName'], ['asc', 'asc', 'asc', 'asc']);
             const types = _.uniqBy(shiftsThisDay, 'type').map(s => s.type).sort();
             let description = "";
+
+            let realClosers = [];
+            let closingDeliverers = [];
+            for (const shift of shiftsThisDay) {
+                if (shift.employeeName !== "Open" && formatDateTime(shift.endDateTime) === "20:30") {
+                    if (shift.type === "Bezorgen") {
+                        closingDeliverers.push(shift.employeeName);
+                    } else {
+                        realClosers.push(shift.employeeName);
+                    }
+                }
+            }
+
+            // Sort realClosers on authority. closers is a list of employees with the key, sorted from most authority to least (in my opinion)
+            realClosers = _.sortBy(realClosers, (employee) => {
+                const index = config.closers.findIndex(el => employee.toLowerCase() === el.toLowerCase());
+                return index === -1 ? Infinity : index;
+            });
+
+            // Only get the first name of each employee
+            realClosers = realClosers.map((e) => {
+                return config.displayNameExceptions[e.toLowerCase()] ?? e.replace(/ .*/, '');
+            });
+            closingDeliverers = closingDeliverers.map((e) => {
+                return config.displayNameExceptions[e.toLowerCase()] ?? e.replace(/ .*/, '');
+            });
+
+            description += "Sluiters: " + realClosers.join(", ") + " (& " + closingDeliverers.join(", ") + ")\n\n";
+
             let shiftLists = [];
             for (const type of types) {
                 let shiftList = "";

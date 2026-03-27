@@ -15,5 +15,7 @@
 			"name": "",
 			"calendarId": ""
 		}
-	]
+	],
+    "closers": [],
+    "displayNameExceptions": {}
 }
