@@ -155,14 +155,21 @@ async function handleNewMessages(client) {
         for (const [date, shiftsThisDay] of shifts.byDate ?? []) {
             let firstShiftStart = null;
             let lastShiftEnd = null;
+            let allShiftsAreOpen = true;
+
             for (const shift of shiftsThisDay) {
-                if (firstShiftStart === null || shift.startDateTime < firstShiftStart) {
-                    firstShiftStart = shift.startDateTime;
-                }
-                if (lastShiftEnd === null || shift.endDateTime > lastShiftEnd) {
-                    lastShiftEnd = shift.endDateTime;
+                if (shift.employeeName !== "Open") {
+                    allShiftsAreOpen = false;
+
+                    if (firstShiftStart === null || shift.startDateTime < firstShiftStart) {
+                        firstShiftStart = shift.startDateTime;
+                    }
+                    if (lastShiftEnd === null || shift.endDateTime > lastShiftEnd) {
+                        lastShiftEnd = shift.endDateTime;
+                    }
                 }
             }
+            if (allShiftsAreOpen) continue;
 
             await googleCalendar.createEvent(calendarApi, config.globalCalendarId, firstShiftStart, lastShiftEnd, "Kwalitaria", descriptions.get(date));
         }
