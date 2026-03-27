@@ -1,21 +1,21 @@
 {
-	"emailHost": "",
-	"emailPort": "",
-	"emailUsername": "",
-	"emailPassword": "",
-	"clientId": "",
-	"clientSecret": "",
-	"debugMode": false,
-	"targetSender": "",
-	"debugSender": "",
-	"refreshToken": "",
-	"globalCalendarId": "",
+    "emailHost": "",
+    "emailPort": "",
+    "emailUsername": "",
+    "emailPassword": "",
+    "clientId": "",
+    "clientSecret": "",
+    "debugMode": false,
+    "targetSender": "",
+    "debugSender": "",
+    "refreshToken": "",
+    "globalCalendarId": "",
     "closers": [],
     "displayNameExceptions": {},
-	"targets": [
-		{
-			"name": "",
-			"calendarId": ""
-		}
-	]
+    "targets": [
+        {
+            "name": "",
+            "calendarId": ""
+        }
+    ]
 }
